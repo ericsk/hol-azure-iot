@@ -14,6 +14,8 @@
 
 3. 資料蒐集五分鐘再傳送到資料輸出。
 
+4. (Bonus) 把資料即時傳入 Power BI
+
 ## 參考資源
 
 * [Azure Stream Analytics (串流分析)](https://azure.microsoft.com/zh-tw/services/stream-analytics/)
