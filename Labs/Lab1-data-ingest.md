@@ -25,3 +25,4 @@
 * [Azure IoT Hub 文件](https://docs.microsoft.com/zh-tw/azure/iot-hub/)
 * [將裝置到雲端訊息傳送至 IoT 中樞](https://docs.microsoft.com/zh-tw/azure/iot-hub/iot-hub-devguide-messages-d2c)
 * 路由訊息 ([.NET](https://docs.microsoft.com/zh-tw/azure/iot-hub/iot-hub-csharp-csharp-process-d2c), [Python](https://docs.microsoft.com/zh-tw/azure/iot-hub/iot-hub-python-python-process-d2c))
+* [Azure Storage Explorer](https://azure.microsoft.com/zh-tw/features/storage-explorer/)
