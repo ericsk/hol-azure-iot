@@ -1,12 +1,10 @@
 ﻿using Microsoft.Azure.Devices;
 using Microsoft.Azure.Devices.Client;
-using Newtonsoft.Json;
 using System;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
 
-namespace SendD2CMessage
+namespace ReceiveC2DMessage
 {
     class Program
     {
@@ -25,31 +23,8 @@ namespace SendD2CMessage
                 Console.WriteLine($"[INFO] Creating device {deviceId} on registry...");
                 device = await registry.AddDeviceAsync(new Device(deviceId));
             }
-
+ 
             return device;
-        }
-
-        static async Task PeriodicallySendMessageAsync(Device device)
-        {
-            var deviceConn = $"HostName={IOTHUB_HOSTNAME};DeviceId={device.Id};SharedAccessKey={device.Authentication.SymmetricKey.PrimaryKey}";
-            var deviceClient = DeviceClient.CreateFromConnectionString(deviceConn);
-            Random rand = new Random();
-
-            while (true)
-            {
-                var data = new {
-                    deviceId = device.Id,
-                    temperature = 20 + rand.NextDouble() * 15,
-                    humidity = 60 + rand.NextDouble() * 20
-                };
-                var rawMessage = JsonConvert.SerializeObject(data);
-                var message = new Microsoft.Azure.Devices.Client.Message(Encoding.UTF8.GetBytes(rawMessage));
-
-                Console.Write($"[INFO] Sending message {rawMessage}");
-                await deviceClient.SendEventAsync(message);
-
-                await Task.Delay(1000);
-            }
         }
 
         static async Task StartAsync()
@@ -59,7 +34,28 @@ namespace SendD2CMessage
 
             Device device = await GetOrRegisterDeviceAsync(registry, DEVICE_ID);
             Console.WriteLine($"[INFO] Device {device.Id} is ready.");
-            await PeriodicallySendMessageAsync(device);
+
+            var deviceConn = $"HostName={IOTHUB_HOSTNAME};DeviceId={device.Id};SharedAccessKey={device.Authentication.SymmetricKey.PrimaryKey}";
+            var deviceClient = DeviceClient.CreateFromConnectionString(deviceConn);
+
+            Console.WriteLine($"[INFO] Device {device.Id} is listening to the Azure IoT Hub...");
+            while (true)
+            {
+                var receivedMessage = await deviceClient.ReceiveAsync();
+                if (receivedMessage == null) continue;
+
+                Console.WriteLine("[INFO] Message received!");
+                Console.WriteLine($"[DATA]\n{ Encoding.UTF8.GetString(receivedMessage.GetBytes()) }");
+                if (receivedMessage.Properties.Count > 0)
+                {
+                    foreach (var key in receivedMessage.Properties.Keys)
+                    {
+                        Console.WriteLine($"{key} -> {receivedMessage.Properties[key]}");
+                    }
+                }
+
+                await deviceClient.CompleteAsync(receivedMessage);
+            }
 
         }
 
