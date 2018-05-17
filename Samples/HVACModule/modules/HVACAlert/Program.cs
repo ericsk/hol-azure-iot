@@ -1,28 +1,24 @@
-using System;
-using System.IO;
-using System.Runtime.InteropServices;
-using System.Runtime.Loader;
-using System.Security.Cryptography.X509Certificates;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
-using Microsoft.Azure.Devices.Client;
-using Microsoft.Azure.Devices.Client.Transport.Mqtt;
+namespace HVACAlert
+{
+    using System;
+    using System.IO;
+    using System.Runtime.InteropServices;
+    using System.Runtime.Loader;
+    using System.Security.Cryptography.X509Certificates;
+    using System.Text;
+    using System.Threading;
+    using System.Threading.Tasks;
+    using Microsoft.Azure.Devices.Client;
+    using Microsoft.Azure.Devices.Client.Transport.Mqtt;
 using System.Collections.Generic;     // for KeyValuePair<>
 using Microsoft.Azure.Devices.Shared; // for TwinCollection
 using Newtonsoft.Json;                // for JsonConvert
 
-#pragma warning disable CS4014
-
-
-namespace HVACModule
-{
-
     class Program
     {
-        static int counter = 0;
-        static int dataSentInterval { get; set; } = 10;
+        static int counter;
 
+        static double tempAlert { get; set; } = 33.0;
 
         class MessageBody
         {
@@ -48,8 +44,6 @@ namespace HVACModule
             AssemblyLoadContext.Default.Unloading += (ctx) => cts.Cancel();
             Console.CancelKeyPress += (sender, cpe) => cts.Cancel();
             WhenCancelled(cts.Token).Wait();
-
-            
         }
 
         /// <summary>
@@ -109,55 +103,59 @@ namespace HVACModule
             await ioTHubModuleClient.OpenAsync();
             Console.WriteLine("IoT Hub module client initialized.");
 
-            // Read DataSentInterval from Module Twin Desired Properties
+            // Read TempAlert from Module Twin Desired Properties
             var moduleTwin = await ioTHubModuleClient.GetTwinAsync();
             var moduleTwinCollection = moduleTwin.Properties.Desired;
             try {
-                dataSentInterval = moduleTwinCollection["DataSentInterval"];
+                tempAlert = moduleTwinCollection["TempAlert"];
             } catch(ArgumentOutOfRangeException e) {
-                Console.WriteLine("Property DataSentInterval not exist");
+                Console.WriteLine("Property TempAlert not exist");
             }
 
             // Attach callback for Twin desired properties updates
             await ioTHubModuleClient.SetDesiredPropertyUpdateCallbackAsync(onDesiredPropertiesUpdate, null);
 
-            // as this runs in a loop we don't await
-            SendDataAsync(ioTHubModuleClient);
+            // Register callback to be called when a message is received by the module
+            await ioTHubModuleClient.SetInputMessageHandlerAsync("hvacInput", PipeMessage, ioTHubModuleClient);
         }
 
-        static async Task SendDataAsync(DeviceClient deviceClient) 
+        /// <summary>
+        /// This method is called whenever the module is sent a message from the EdgeHub. 
+        /// It just pipe the messages without any change.
+        /// It prints all the incoming messages.
+        /// </summary>
+        static async Task<MessageResponse> PipeMessage(Message message, object userContext)
         {
-            var rand = new Random((int)DateTime.UtcNow.Ticks);
+            int counterValue = Interlocked.Increment(ref counter);
 
-            while (true) 
+            var deviceClient = userContext as DeviceClient;
+            if (deviceClient == null)
             {
-                try
+                throw new InvalidOperationException("UserContext doesn't contain " + "expected values");
+            }
+
+            byte[] messageBytes = message.GetBytes();
+            string messageString = Encoding.UTF8.GetString(messageBytes);
+            Console.WriteLine($"Received message: {counterValue}, Body: [{messageString}]");
+
+            MessageBody mb = JsonConvert.DeserializeObject<MessageBody>(messageString);
+
+            if (!string.IsNullOrEmpty(messageString) && mb.temperature > tempAlert)
+            {
+                var pipeMessage = new Message(messageBytes);
+                /*
+                foreach (var prop in message.Properties)
                 {
-                    counter++;
-
-                    var rawMsg = new MessageBody()
-                    {
-                        humidity = rand.Next(40, 102),
-                        temperature = rand.Next(1960, 3747) / 100,
-                        energy = rand.Next(2000, 6338),
-                        light = rand.Next(10, 2306),
-                        timeCreated = $"{DateTime.UtcNow.ToShortDateString()} {DateTime.UtcNow.ToLongTimeString()}"
-                    };
-                    var messageString = JsonConvert.SerializeObject(rawMsg);
-                    var message = new Message(Encoding.UTF8.GetBytes(messageString));
-                    await deviceClient.SendEventAsync("hvacOutput", message);
-
-                    Console.WriteLine($"\t{DateTime.UtcNow.ToShortDateString()} {DateTime.UtcNow.ToLongTimeString()}> Sending message: {counter}, Body: {messageString}");
-
-                    // delay for next data gen.
-                    await Task.Delay(TimeSpan.FromSeconds(dataSentInterval));
+                    pipeMessage.Properties.Add(prop.Key, prop.Value);
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"[ERROR] Unexpected Exception {ex.Message}" );
-                    Console.WriteLine($"\t{ex.ToString()}");
-                }
-            }    
+                */
+                pipeMessage.Properties.Add("AlertType", "Temperature");
+                pipeMessage.Properties.Add("AlertThreshold", tempAlert.ToString());
+
+                await deviceClient.SendEventAsync("output1", pipeMessage);
+                Console.WriteLine("Received message sent");
+            }
+            return MessageResponse.Completed;
         }
 
         static Task onDesiredPropertiesUpdate(TwinCollection desiredProperties, object userContext)
@@ -167,8 +165,8 @@ namespace HVACModule
                 Console.WriteLine("Desired property change:");
                 Console.WriteLine(JsonConvert.SerializeObject(desiredProperties));
 
-                if (desiredProperties["DataSentInterval"] != null)
-                    dataSentInterval = desiredProperties["DataSentInterval"];
+                if (desiredProperties["TempAlert"] != null)
+                    tempAlert = desiredProperties["TempAlert"];
 
             }
             catch (AggregateException ex)

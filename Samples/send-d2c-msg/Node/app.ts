@@ -2,10 +2,10 @@ import * as iothub from 'azure-iothub';
 import * as iothubMqtt from 'azure-iot-device-mqtt';
 import { Message } from 'azure-iot-device';
 
-const DEVICE_ID = "";
-const IOTHUB_HOSTNAME = ""; // e.g., *.azure-device.net
+const DEVICE_ID = "ericsk-iot-sb2";
+const IOTHUB_HOSTNAME = "ericskHub.azure-devices.net"; // e.g., *.azure-device.net
 const IOTHUB_POLICY = "iothubowner"; // e.g., "iothubowner"
-const IOTHUB_KEY = "";
+const IOTHUB_KEY = "VE2+Ez+hDLp5iM7FA5FnwAdHbExXa4etbMIZHgi5ROc=";
 
 /**
  * Get device info from Azure IoT Hub. If device doesn't exist, register a new one.

@@ -48,6 +48,16 @@
               "image": "${MODULES.HVACModule.amd64}",
               "createOptions": ""
             }
+          },
+          "HVACAlert": {
+            "version": "1.0",
+            "type": "docker",
+            "status": "running",
+            "restartPolicy": "always",
+            "settings": {
+              "image": "${MODULES.HVACAlert.amd64}",
+              "createOptions": ""
+            }
           }
         }
       }

@@ -1,0 +1,6 @@
+{
+  "routes": {
+    "sensorToFilter": "FROM /messages/modules/hvac/outputs/hvacOutput INTO BrokeredEndpoint(\"/modules/hvac-alert/inputs/hvacInput\")",
+    "filterToIoTHub": "FROM /messages/modules/hvac-alert/outputs/output1 INTO $upstream"
+  }
+}
